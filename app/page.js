@@ -1,45 +1,33 @@
-// FileUploadComponent.js
-'use client'
-import React, { useState } from 'react'
-import { useSpeechSynthesis } from 'react-speech-kit'
+'use'
+import React from 'react'
+import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry'
 
-const HomePage = () => {
-  const { speak, cancel } = useSpeechSynthesis()
-  const [fileText, setFileText] = useState('')
-  const [fileUploaded, setFileUploaded] = useState(false)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0]
-    const reader = new FileReader()
+async function readPdf(file) {
+  const reader = new FileReader()
+  reader.onload = async (e) => {
+    const buffer = e.target.result
+    const pdf = await pdfjsLib.getDocument(new Uint8Array(buffer)).promise
+    const numPages = pdf.numPages
 
-    reader.onload = async (e) => {
-      const text = e.target.result
-      setFileText(text)
-      setFileUploaded(true)
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const textItems = textContent.items.map((item) => item.str)
+      const text = textItems.join(' ') // Join text items on the page
+      console.log('Text on page', i, ':', text)
     }
-
-    reader.readAsText(file)
   }
+  reader.readAsArrayBuffer(file)
+}
 
-  const handleSpeech = () => {
-    speak({ text: fileText })
-  }
-
-  const handleStopSpeech = () => {
-    cancel()
-  }
-
+export default function HomePage() {
   return (
     <div>
-      <input type='file' onChange={handleFileUpload} />
-      {fileUploaded && (
-        <div>
-          <button onClick={handleSpeech}>Play Text as Speech</button>
-          <button onClick={handleStopSpeech}>Stop Speech</button>
-        </div>
-      )}
+      <h1>PDF to Text</h1>
+      <input type='file' onChange={(e) => readPdf(e.target.files[0])} />
     </div>
   )
 }
-
-export default HomePage
